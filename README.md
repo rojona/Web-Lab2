@@ -24,11 +24,11 @@ Ett enkelt e-handelssystem utvecklat med Blazor WebAssembly .NET 8 och ASP.NET C
 
 ### Steg för att komma igång
 1. Klona repositoryt: `git clone https://github.com/rojona/Web-Lab2.git`
-2. Uppdatera connection string i `Web-Lab2.Server/appsettings.json` för att matcha din SQL Server-instans.
-3. Öppna en kommandotolk i din IDE och kör detta kommando mot mappen `Web-Lab2.Server` för att ladda databasmigreringar: `dotnet ef database update`
+2. Uppdatera connection string i Web-Lab2.Server/appsettings.json för att matcha din SQL Server-instans.
+3. Öppna en kommandotolk i din IDE och kör detta kommando mot mappen Web-Lab2.Server för att ladda databasmigreringar: `dotnet ef database update`
 4. Starta projektet genom att köra både Server och Client:
-- Server: `dotnet run` från mappen `Web-Lab2.Server`
-- Client: Öppna en ny kommandotolk och kör `dotnet run` från mappen `Web-Lab2.Client`
+- Server: `dotnet run` från mappen Web-Lab2.Server
+- Client: Öppna en ny kommandotolk och kör `dotnet run` från mappen Web-Lab2.Client
 
 Alternativt kan du köra båda projekten samtidigt från Rider eller Visual Studio.
 
