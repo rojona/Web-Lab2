@@ -1,0 +1,60 @@
+﻿@page "/Admin"
+@using Microsoft.AspNetCore.Authorization
+@using Web_Lab2.Client.Services
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+
+@attribute [Authorize(Roles = "Admin")]
+
+<h3>Admin Dashboard</h3>
+
+@if (!isAdmin)
+{
+    <p>You do not have permission to access this area.</p>
+}
+else
+{
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Products Management</h5>
+                    <p class="card-text">Manage product catalog, add new products or update existing ones.</p>
+                    <a href="/products" class="btn btn-primary">Go to Products</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Customers Management</h5>
+                    <p class="card-text">View and manage customer accounts and information.</p>
+                    <a href="/customers" class="btn btn-primary">Go to Customers</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Orders Management</h5>
+                    <p class="card-text">View all orders, check status and manage customer purchases.</p>
+                    <a href="/orders" class="btn btn-primary">Go to Orders</a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isAdmin = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isAdmin = await AuthService.IsInRoleAsync("Admin");
+
+        if (!isAdmin)
+        {
+            NavigationManager.NavigateTo("/");
+        }
+    }
+}

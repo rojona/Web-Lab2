@@ -1,0 +1,106 @@
+﻿@page "/orders"
+@page "/customers/{CustomerId:int}/orders"
+@using Web_Lab2.Client.Models
+@using Web_Lab2.Client.Services
+@using Microsoft.AspNetCore.Authorization
+@inject OrderService OrderService
+@inject CustomerService CustomerService
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Admin")]
+
+<h3>
+    @if (CustomerId.HasValue)
+    {
+        <span>Orders for @_customerName</span>
+        <button class="btn btn-secondary btn-sm float-end" @onclick="ViewAllOrders">View All Orders</button>
+    }
+    else
+    {
+        <span>All Orders</span>
+    }
+</h3>
+
+<div class="row mb-3">
+    <div class="col-md-12 text-end">
+        <button class="btn btn-primary" @onclick='() => NavigationManager.NavigateTo("/orders/create")'>
+        <span class="oi oi-plus"></span> Create New Order
+        </button>
+    </div>
+</div>
+
+@if (_orders == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!_orders.Any())
+{
+    <p>No orders found.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>Order ID</th>
+            <th>Customer</th>
+            <th>Date</th>
+            <th>Total</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var order in _orders)
+        {
+            <tr>
+                <td>@order.Id</td>
+                <td>@order.CustomerName</td>
+                <td>@order.OrderDate.ToShortDateString()</td>
+                <td>@order.TotalAmount.ToString("C")</td>
+                <td>
+                    <button class="btn btn-sm btn-info" @onclick='() => NavigationManager.NavigateTo($"/orders/{order.Id}")'>
+                    <span class="oi oi-eye"></span> Details
+                    </button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter]
+    public int? CustomerId { get; set; }
+
+    private List<Order> _orders;
+    private string _customerName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrderData();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadOrderData();
+    }
+
+    private async Task LoadOrderData()
+    {
+        if (CustomerId.HasValue)
+        {
+            var customer = await CustomerService.GetCustomerAsync(CustomerId.Value);
+            _customerName = $"{customer.FirstName} {customer.LastName}";
+            _orders = await OrderService.GetOrdersByCustomerAsync(CustomerId.Value);
+        }
+        else
+        {
+            _customerName = "";
+            _orders = await OrderService.GetOrdersAsync();
+        }
+    }
+
+    private void ViewAllOrders()
+    {
+        NavigationManager.NavigateTo("/orders", forceLoad: true);
+    }
+}

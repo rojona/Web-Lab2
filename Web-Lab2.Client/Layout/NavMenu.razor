@@ -1,0 +1,134 @@
+﻿@using Web_Lab2.Client.Services
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Web-Lab2 - Robin Andersson</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="oi oi-home" aria-hidden="true"></span> Web-Lab2 Shop
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="products">
+                <span class="oi oi-list" aria-hidden="true"></span> Products
+            </NavLink>
+        </div>
+        
+        @if (_isAdmin)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="customers">
+                    <span class="oi oi-people" aria-hidden="true"></span> Customers
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="orders">
+                    <span class="oi oi-cart" aria-hidden="true"></span> Orders
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin">
+                    <span class="oi oi-shield" aria-hidden="true"></span> Admin
+                </NavLink>
+            </div>
+        }
+        
+        @if (_isAuthenticated && !_isAdmin)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="profile">
+                    <span class="oi oi-person" aria-hidden="true"></span> Profile
+                </NavLink>
+            </div>
+        }
+        
+        
+        @if (_isAuthenticated)
+        {
+            <div class="nav-item px-3">
+                <button class="nav-link btn btn-link" @onclick="Logout">
+                    <span class="oi oi-account-logout" aria-hidden="true"></span> Logout
+                </button>
+            </div>
+        }
+        
+        else
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="login">
+                    <span class="oi oi-account-login" aria-hidden="true"></span> Login
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="register">
+                    <span class="oi oi-plus" aria-hidden="true"></span> Register
+                </NavLink>
+            </div>
+        }
+    </nav>
+</div>
+
+@code {
+    private bool _collapseNavMenu = true;
+    private bool _isAuthenticated = false;
+    private bool _isAdmin = false;
+
+    private DotNetObjectReference<NavMenu> objRef;
+    private string NavMenuCssClass => _collapseNavMenu ? "collapse" : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckAuthenticationStatus();
+
+        objRef = DotNetObjectReference.Create(this);
+
+        await JSRuntime.InvokeVoidAsync("registerAuthChangeCallback", objRef);
+    }
+
+    [JSInvokable]
+
+    public async Task OnAuthenticationChanged()
+    {
+        await CheckAuthenticationStatus();
+        
+        StateHasChanged();
+    }
+
+    private async Task CheckAuthenticationStatus()
+    {
+        _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        _isAdmin = await AuthService.IsInRoleAsync("Admin");
+    }
+    
+    private void ToggleNavMenu()
+    {
+        _collapseNavMenu = !_collapseNavMenu;
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+
+        _isAuthenticated = false;
+        _isAdmin = false;
+            
+        NavigationManager.NavigateTo("/", true);
+    }
+
+    public void Dispose()
+    {
+        objRef?.Dispose();
+    }
+}

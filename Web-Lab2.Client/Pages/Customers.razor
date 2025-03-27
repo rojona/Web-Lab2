@@ -1,0 +1,101 @@
+﻿@page "/customers"
+@using Microsoft.AspNetCore.Authorization
+@using Web_Lab2.Client.Models
+@using Web_Lab2.Client.Services
+@inject CustomerService CustomerService
+@inject NavigationManager NavigationManager
+
+<h3>Customers</h3>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Search by email..." @bind="searchTerm" @bind:event="oninput" />
+            <button class="btn btn-outline-secondary" type="button" @onclick="SearchCustomers">
+                <span class="oi oi-magnifying-glass"></span> Search
+            </button>
+        </div>
+    </div>
+    <div class="col-md-6 text-end">
+        <button class="btn btn-primary" @onclick='() => NavigationManager.NavigateTo("/customers/create")'>
+        <span class="oi oi-plus"></span> Add Customer
+        </button>
+    </div>
+</div>
+
+@if (customers == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!customers.Any())
+{
+    <p>No customers found.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Address</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var customer in customers)
+        {
+            <tr>
+                <td>@customer.FirstName @customer.LastName</td>
+                <td>@customer.Email</td>
+                <td>@customer.Phone</td>
+                <td>@customer.Address, @customer.PostalCode @customer.City</td>
+                <td>
+                    <button class="btn btn-sm btn-info" @onclick='() => NavigationManager.NavigateTo($"/customers/edit/{customer.Id}")'>
+                    <span class="oi oi-pencil"></span>
+                    </button>
+                    <button class="btn btn-sm btn-primary" @onclick='() => NavigationManager.NavigateTo($"/customers/{customer.Id}/orders")'>
+                    <span class="oi oi-cart"></span> Orders
+                    </button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Customer> customers;
+    private string searchTerm = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCustomers();
+    }
+
+    private async Task LoadCustomers()
+    {
+        customers = await CustomerService.GetCustomersAsync();
+    }
+
+    private async Task SearchCustomers()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            await LoadCustomers();
+        }
+        else
+        {
+            try
+            {
+                var customer = await CustomerService.GetCustomerByEmailAsync(searchTerm);
+                customers = new List<Customer> { customer };
+            }
+            catch
+            {
+                customers = new List<Customer>();
+            }
+        }
+    }
+}

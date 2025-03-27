@@ -1,0 +1,168 @@
+﻿@page "/customer-profile"
+@page "/customer-profile/{Id:int}"
+@using Web_Lab2.Client.Models
+@using Web_Lab2.Client.Services
+@inject CustomerService CustomerService
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<h3>@pageTitle</h3>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">
+        @errorMessage
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-6">
+        <EditForm Model="@customer" OnValidSubmit="HandleValidSubmit">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="mb-3">
+                <label for="firstName" class="form-label">First Name</label>
+                <InputText id="firstName" @bind-Value="customer.FirstName" class="form-control" />
+                <ValidationMessage For="@(() => customer.FirstName)" />
+            </div>
+
+            <div class="mb-3">
+                <label for="lastName" class="form-label">Last Name</label>
+                <InputText id="lastName" @bind-Value="customer.LastName" class="form-control" />
+                <ValidationMessage For="@(() => customer.LastName)" />
+            </div>
+
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <InputText id="email" @bind-Value="customer.Email" class="form-control" disabled="@isEditMode" />
+                <ValidationMessage For="@(() => customer.Email)" />
+            </div>
+
+            <div class="mb-3">
+                <label for="phoneNumber" class="form-label">Phone Number</label>
+                <InputText id="phoneNumber" @bind-Value="customer.Phone" class="form-control" />
+                <ValidationMessage For="@(() => customer.Phone)" />
+            </div>
+
+            <div class="mb-3">
+                <label for="address" class="form-label">Address</label>
+                <InputText id="address" @bind-Value="customer.Address" class="form-control" />
+                <ValidationMessage For="@(() => customer.Address)" />
+            </div>
+
+            <div class="mb-3">
+                <label for="city" class="form-label">City</label>
+                <InputText id="city" @bind-Value="customer.City" class="form-control" />
+                <ValidationMessage For="@(() => customer.City)" />
+            </div>
+
+            <div class="mb-3">
+                <label for="postalCode" class="form-label">Postal Code</label>
+                <InputText id="postalCode" @bind-Value="customer.PostalCode" class="form-control" />
+                <ValidationMessage For="@(() => customer.PostalCode)" />
+            </div>
+
+            <div class="mb-3">
+                <label for="country" class="form-label">Country</label>
+                <InputText id="country" @bind-Value="customer.Country" class="form-control" />
+                <ValidationMessage For="@(() => customer.Country)" />
+            </div>
+
+            <div class="mb-3">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" class="btn btn-secondary" @onclick="HandleCancel">Cancel</button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Customer customer = new Customer();
+    private string? pageTitle;
+    private bool isEditMode => Id.HasValue;
+    private string errorMessage = "";
+    private bool isAdmin = false;
+    private string? returnUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isAdmin = await AuthService.IsInRoleAsync("Admin");
+    
+        var uri = new Uri(NavigationManager.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        returnUrl = query["returnUrl"] ?? "";
+
+        if (isEditMode)
+        {
+            pageTitle = "Edit Customer Profile";
+            customer = await CustomerService.GetCustomerAsync(Id.Value);
+        }
+        else
+        {
+            pageTitle = "Create Customer Profile";
+            customer = new Customer();
+        
+            var user = await AuthService.GetCurrentUserAsync();
+            if (user != null)
+            {
+                customer.Email = user.Email;
+            }
+        }
+    }
+    
+    private void HandleCancel()
+    {
+        if (!string.IsNullOrEmpty(returnUrl))
+        {
+            NavigationManager.NavigateTo(returnUrl);
+        }
+        else if (isAdmin)
+        {
+            NavigationManager.NavigateTo("/customers");
+        }
+        else
+        {
+            NavigationManager.NavigateTo("/products");
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            errorMessage = "";
+        
+            if (isEditMode)
+            {
+                await CustomerService.UpdateCustomerAsync(Id.Value, customer);
+            }
+            else
+            {
+                var createdCustomer = await CustomerService.CreateCustomerAsync(customer);
+            }
+
+            if (!string.IsNullOrEmpty(returnUrl))
+            {
+                NavigationManager.NavigateTo(returnUrl, true);
+            }
+            else if (isAdmin)
+            {
+                NavigationManager.NavigateTo("/customers", true);
+            }
+            else
+            {
+                NavigationManager.NavigateTo("/profile", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving profile: {ex.Message}";
+            await JSRuntime.InvokeVoidAsync("console.error", $"Exception when saving profile: {ex.Message}");
+        }
+    }
+}

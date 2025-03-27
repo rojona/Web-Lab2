@@ -1,0 +1,170 @@
+﻿@page "/profile"
+@using Microsoft.AspNetCore.Authorization
+@using Web_Lab2.Client.Models
+@using Web_Lab2.Client.Services
+@inject CustomerService CustomerService
+@inject OrderService OrderService
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@attribute [Authorize]
+
+<h3>My Profile</h3>
+
+@if (isLoading)
+{
+    <p><em>Loading...</em></p>
+}
+else if (customer == null)
+{
+    <div class="alert alert-info">
+        <h4>No Customer Profile</h4>
+        <p>You need to create a customer profile to place orders and view your order history.</p>
+        <button class="btn btn-primary" @onclick="CreateProfile">
+            Create Profile
+        </button>
+    </div>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Personal Information</h4>
+                </div>
+                <div class="card-body">
+                    <p><strong>Name:</strong> @customer.FirstName @customer.LastName</p>
+                    <p><strong>Email:</strong> @customer.Email</p>
+                    <p><strong>Phone:</strong> @customer.Phone</p>
+                    <p><strong>Address:</strong> @customer.Address, @customer.PostalCode @customer.City, @customer.Country</p>
+                    
+                    <button class="btn btn-primary" @onclick="EditProfile">
+                        <span class="oi oi-pencil"></span> Edit Profile
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h4>My Orders</h4>
+    
+    @if (orders == null || !orders.Any())
+    {
+        <p>You don't have any orders yet.</p>
+        <button class="btn btn-primary" @onclick='() => NavigationManager.NavigateTo("/products")'>
+            <span class="oi oi-cart"></span> Go Shopping
+        </button>
+    }
+    else
+    {
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Order ID</th>
+                    <th>Date</th>
+                    <th>Total</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var order in orders)
+                {
+                    <tr>
+                        <td>@order.Id</td>
+                        <td>@order.OrderDate.ToShortDateString()</td>
+                        <td>@order.TotalAmount.ToString("C")</td>
+                        <td>
+                            <button class="btn btn-sm btn-info" @onclick='() => NavigationManager.NavigateTo($"/orders/{order.Id}")'>
+                                <span class="oi oi-eye"></span> Details
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private Customer customer;
+    private List<Order> orders = new List<Order>();
+    private bool isLoading = true;
+    private string? userEmail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUser = await AuthService.GetCurrentUserAsync();
+        if (currentUser != null)
+        {
+            userEmail = currentUser.Email;
+            await LoadCustomerData();
+        }
+        else
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadCustomerData()
+    {
+        try
+        {
+            try
+            {
+                customer = await CustomerService.GetCustomerByEmailAsync(userEmail);
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("console.error", $"API lookup failed: {ex.Message}");
+                
+                try
+                {
+                    var allCustomers = await CustomerService.GetCustomersAsync();
+                    
+                    customer = allCustomers.FirstOrDefault(c => 
+                        string.Equals(c.Email, userEmail, StringComparison.OrdinalIgnoreCase));
+                }
+                catch (Exception listEx)
+                {
+                    await JSRuntime.InvokeVoidAsync("console.error", $"List search failed: {listEx.Message}");
+                }
+            }
+            
+            if (customer != null)
+            {
+                try
+                {
+                    orders = await OrderService.GetOrdersByCustomerAsync(customer.Id);
+                }
+                catch (Exception ex)
+                {
+                    orders = new List<Order>();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", $"Unhandled error in LoadCustomerData: {ex.Message}");
+            customer = null!;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CreateProfile()
+    {
+        NavigationManager.NavigateTo("/customer-profile?returnUrl=/profile");
+    }
+
+    private void EditProfile()
+    {
+        if (customer != null)
+        {
+            NavigationManager.NavigateTo($"/customer-profile/{customer.Id}?returnUrl=/profile");
+        }
+    }
+}

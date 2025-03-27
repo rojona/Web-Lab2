@@ -1,0 +1,324 @@
+﻿@page "/products"
+@using Web_Lab2.Client.Models
+@using Web_Lab2.Client.Services
+@inject ProductService ProductService
+@inject AuthService AuthService
+@inject OrderService OrderService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JsRuntime
+@inject CustomerService CustomerService
+
+<h3>Products Management</h3>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        
+        @if (_isAdmin)
+        {
+            <button class="btn btn-primary" @onclick='() => NavigationManager.NavigateTo("/products/create")'>
+                <span class="oi oi-plus"></span>Add Product
+            </button>
+            <button class="btn btn-info ms-2" @onclick="LoadProducts">
+                <span class="oi oi-reload"></span>Reload
+            </button>
+        }
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger">
+        <h4>Error:</h4>
+        <p>@_errorMessage</p>
+    </div>
+}
+
+@if (_products == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!_products.Any())
+{
+    <p>No products found.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var product in _products)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            @product.Name
+                        </h5>
+                        <h6 class="card-subtitle mb-2 text-muted">
+                            @product.ProductNumber
+                        </h6>
+                        <p class="card-text">@product.Description</p>
+                        <p class="card-text"><strong>Category:</strong> @product.Category</p>
+                        <p class="card-text"><strong>Price:</strong> @product.Price.ToString("C")</p>
+                        
+                        @if (product.IsDiscontinued)
+                        {
+                            <span class="badge bg-danger">Discontinued</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success">Available</span>
+                        }
+                    </div>
+                    <div class="card-footer">
+                        @if (_isAdmin)
+                        {
+                            <button class="btn btn-sm btn-info" @onclick='() => NavigationManager.NavigateTo($"/products/edit/{product.Id}")'>
+                                <span class="oi oi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteProduct(product.Id)">
+                                <span class="oi oi-trash"></span> Delete
+                            </button>
+                        }
+
+                        @if (!product.IsDiscontinued && _isAuthenticated)
+                        {
+                            <div class="mt-2">
+                                <div class="input-group">
+                                    <input type="number" class="form-control form-control-sm" min="1"
+                                           @bind="_productQuantities[product.Id]" />
+                                    <button class="btn btn-sm btn-success" @onclick="() => AddToOrder(product)">
+                                        <span class="oi oi-cart"></span> Add to Order
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (_orderItems.Any() && _isAuthenticated)
+    {
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4>Your Order</h4>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th>Total</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var item in _orderItems)
+                    {
+                        var product = _products.FirstOrDefault(p => p.Id == item.ProductId);
+                        if (product != null)
+                        {
+                            <tr>
+                                <td>@product.Name</td>
+                                <td>@product.Price.ToString("C")</td>
+                                <td>@item.Quantity</td>
+                                <td>@((product.Price * item.Quantity).ToString("C"))</td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => RemoveFromOrder(item.ProductId)">
+                                        <span class="oi oi-trash"></span>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    </tbody>
+                    <tfoot>
+                    <tr>
+                        <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                        <td>
+                            <strong>
+                                @_orderItems.Sum(item => {
+                                    var product = _products.FirstOrDefault(p => p.Id == item.ProductId);
+                                    return product != null ? product.Price * item.Quantity : 0;
+                                }).ToString("C")
+                            </strong>
+                        </td>
+                        <td></td>
+                    </tr>
+                    </tfoot>
+                </table>
+
+                <button class="btn btn-primary" @onclick="PlaceOrder" disabled="@(!_orderItems.Any())">
+                    Place Order
+                </button>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<Product>? _products;
+    private string _errorMessage = "";
+    private bool _isAdmin = false;
+    private bool _isAuthenticated = false;
+    private Dictionary<int, int> _productQuantities = new ();
+    private List<CreateOrderItemRequest> _orderItems = new ();
+    private Customer? _currentCustomer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        _isAdmin = await AuthService.IsInRoleAsync("Admin");
+        await LoadProducts();
+
+        if (_isAuthenticated)
+        {
+            await LoadCurrentCustomer();
+        }
+    }
+
+    private async Task LoadProducts()
+    {
+        try
+        {
+            _errorMessage = "";
+            _products = null;
+            StateHasChanged();
+
+            _products = await ProductService.GetProductsAsync();
+            
+            foreach (var product in _products)
+            {
+                if (!_productQuantities.ContainsKey(product.Id))
+                {
+                    _productQuantities[product.Id] = 1;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error loading products: {ex.Message}";
+            _products = new List<Product>();
+        }
+    }
+
+    private async Task LoadCurrentCustomer()
+    {
+        try
+        {
+            var user = await AuthService.GetCurrentUserAsync();
+            if (user != null)
+            {
+                try
+                {
+                    _currentCustomer = await CustomerService.GetCustomerByEmailAsync(user.Email);
+                }
+                catch (Exception)
+                {
+                    _currentCustomer = null;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading customer data: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteProduct(int id)
+    {
+        try
+        {
+            if (await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this product?"))
+            {
+                await ProductService.DeleteProductAsync(id);
+                await LoadProducts();
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error deleting product: {ex.Message}";
+        }
+    }
+
+    private void AddToOrder(Product product)
+    {
+        if (!_isAuthenticated)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        int quantity = _productQuantities[product.Id];
+        if (quantity <= 0) quantity = 1;
+
+        var existingItem = _orderItems.FirstOrDefault(item => item.ProductId == product.Id);
+        if (existingItem != null)
+        {
+            existingItem.Quantity += quantity;
+        }
+        else
+        {
+            _orderItems.Add(new CreateOrderItemRequest {
+                ProductId = product.Id,
+                Quantity = quantity
+            });
+        }
+
+        _productQuantities[product.Id] = 1;
+    }
+
+    private void RemoveFromOrder(int productId)
+    {
+        var item = _orderItems.FirstOrDefault(item => item.ProductId == productId);
+        if (item != null)
+        {
+            _orderItems.Remove(item);
+        }
+    }
+
+    private async Task PlaceOrder()
+    {
+        if (!_isAuthenticated)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        if (_orderItems.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            if (_currentCustomer == null)
+            {
+                await LoadCurrentCustomer();
+                if (_currentCustomer == null)
+                {
+                    NavigationManager.NavigateTo("/customer-profile?returnUrl=/products");
+                    return;
+                }
+            }
+
+            var orderRequest = new CreateOrderRequest
+            {
+                CustomerId = _currentCustomer.Id,
+                OrderItems = _orderItems
+            };
+
+            var order = await OrderService.CreateOrderAsync(orderRequest);
+            _orderItems.Clear();
+
+            await JsRuntime.InvokeVoidAsync("alert", "Order placed successfully!");
+            NavigationManager.NavigateTo($"/orders/{order.Id}");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error placing order: {ex.Message}";
+        }
+    }
+}

@@ -1,0 +1,109 @@
+﻿@page "/login"
+@using System.ComponentModel.DataAnnotations
+@using Web_Lab2.Client.Services
+@inject AuthService AuthService
+@inject CustomerService CustomerService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject HttpClient Http
+
+<h3>Login</h3>
+
+<div class="row">
+    <div class="col-md-6">
+        <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="alert alert-success">@successMessage</div>
+            }
+
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <InputText id="email" @bind-Value="loginModel.Email" class="form-control" />
+                <ValidationMessage For="@(() => loginModel.Email)" />
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <InputText id="password" @bind-Value="loginModel.Password" type="password" class="form-control" />
+                <ValidationMessage For="@(() => loginModel.Password)" />
+            </div>
+
+            <div class="mb-3">
+                <button type="submit" class="btn btn-primary">Login</button>
+                <a href="/register" class="btn btn-link">Register</a>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private LoginModel loginModel = new LoginModel();
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await AuthService.IsAuthenticatedAsync())
+        {
+            NavigationManager.NavigateTo("/");
+        }
+        
+        var uri = new Uri(NavigationManager.Uri);
+        var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        if (queryParams["registered"] == "true")
+        {
+            successMessage = "Registration successful! Please log in.";
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        errorMessage = string.Empty;
+        var result = await AuthService.LoginAsync(loginModel.Email, loginModel.Password);
+        
+        if (result)
+        {
+            var currentUser = await AuthService.GetCurrentUserAsync();
+            
+            if (currentUser != null)
+            {
+                try
+                {
+                    var customerProfile = await CustomerService.GetCustomerByEmailAsync(currentUser.Email);
+                    NavigationManager.NavigateTo("/", true);
+                }
+                catch
+                {
+                    NavigationManager.NavigateTo("/customer-profile?returnUrl=/products", true);
+                }
+            }
+            else
+            {
+                NavigationManager.NavigateTo("/", true);
+            }
+        }
+        else
+        {
+            errorMessage = "Invalid email or password.";
+        }
+    }
+
+    public class LoginModel
+    {
+        [Required]
+        [EmailAddress]
+        public string? Email { get; set; }
+
+        [Required]
+        public string? Password { get; set; }
+    }
+}

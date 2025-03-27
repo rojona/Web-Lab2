@@ -1,0 +1,111 @@
+﻿@page "/Register"
+@using System.ComponentModel.DataAnnotations
+@using Web_Lab2.Client.Services
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+
+<h3>Register</h3>
+
+<div class="row">
+    <div class="col-md-6">
+        <EditForm Model="@registerModel" OnValidSubmit="HandleRegister">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <InputText id="username" @bind-Value="registerModel.Username" class="form-control" />
+                <ValidationMessage For="@(() => registerModel.Username)" />
+            </div>
+
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <InputText id="email" @bind-Value="registerModel.Email" class="form-control" />
+                <ValidationMessage For="@(() => registerModel.Email)" />
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <InputText id="password" @bind-Value="registerModel.Password" type="password" class="form-control" />
+                <ValidationMessage For="@(() => registerModel.Password)" />
+            </div>
+
+            <div class="mb-3">
+                <label for="confirmPassword" class="form-label">Confirm Password</label>
+                <InputText id="confirmPassword" @bind-Value="registerModel.ConfirmPassword" type="password" class="form-control" />
+                <ValidationMessage For="@(() => registerModel.ConfirmPassword)" />
+            </div>
+
+            <div class="mb-3">
+                <button type="submit" class="btn btn-primary">Register</button>
+                <a href="/login" class="btn btn-link">Already have an account? Login</a>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private RegisterModel registerModel = new RegisterModel();
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await AuthService.IsAuthenticatedAsync())
+        {
+            NavigationManager.NavigateTo("/");
+        }
+    }
+
+    private async Task HandleRegister()
+    {
+        if (registerModel.Password != registerModel.ConfirmPassword)
+        {
+            errorMessage = "Passwords do not match.";
+            return;
+        }
+
+        errorMessage = string.Empty;
+        var result = await AuthService.RegisterAsync(registerModel.Username, registerModel.Email, registerModel.Password);
+        
+        if (result)
+        {
+            var loginSuccess = await AuthService.LoginAsync(registerModel.Email, registerModel.Password);
+            
+            if (loginSuccess)
+            {
+                NavigationManager.NavigateTo("/customer-profile?returnUrl=/products");
+            }
+            else
+            {
+                NavigationManager.NavigateTo("/login?registered=true");
+            }
+        }
+        else
+        {
+            errorMessage = "Registration failed. Please try again.";
+        }
+    }
+
+    public class RegisterModel
+    {
+        [Required]
+        public string? Username { get; set; }
+
+        [Required]
+        [EmailAddress]
+        public string? Email { get; set; }
+
+        [Required]
+        [MinLength(6, ErrorMessage = "Password must be at least 6 characters long")]
+        public string? Password { get; set; }
+
+        [Required]
+        [Compare("Password", ErrorMessage = "Passwords do not match")]
+        public string? ConfirmPassword { get; set; }
+    }
+}

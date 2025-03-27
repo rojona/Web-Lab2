@@ -1,0 +1,36 @@
+﻿@using Web_Lab2.Client.Services
+@inherits LayoutComponentBase
+@inject AuthService AuthService
+
+<div class="page">
+    <div class="sidebar" style="min-width: 300px">
+        <NavMenu/>
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            @if (_isAuthenticated)
+            {
+                <span>Welcome, @_username!</span>
+            }
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+
+    private bool _isAuthenticated;
+    private string _username = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+
+        var user = await AuthService.GetCurrentUserAsync();
+        _username = user?.Username ?? "";
+    }
+}

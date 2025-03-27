@@ -1,0 +1,121 @@
+﻿@page "/orders/create"
+@using Microsoft.AspNetCore.Authorization
+@using Web_Lab2.Client.Models
+@using Web_Lab2.Client.Services
+@inject CustomerService CustomerService
+@inject ProductService ProductService
+@inject OrderService OrderService
+@inject NavigationManager NavigationManager
+
+<h3>Create New Order</h3>
+
+<div class="row">
+    <div class="col-md-8">
+        <EditForm Model="@orderRequest" OnValidSubmit="HandleValidSubmit">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="mb-3">
+                <label for="customerId" class="form-label">Customer</label>
+                <select id="customerId" class="form-select" @bind="orderRequest.CustomerId">
+                    <option value="0">-- Select Customer --</option>
+                    @if (customers != null)
+                    {
+                        @foreach (var customer in customers)
+                        {
+                            <option value="@customer.Id">@customer.FirstName @customer.LastName (@customer.Email)</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <h4>Order Items</h4>
+            <div class="mb-3">
+                <button type="button" class="btn btn-sm btn-secondary" @onclick="AddOrderItem">
+                    <span class="oi oi-plus"></span> Add Item
+                </button>
+            </div>
+
+            @for (int i = 0; i < orderItems.Count; i++)
+            {
+                var index = i;
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Product</label>
+                                <select class="form-select" @bind="orderItems[index].ProductId">
+                                    <option value="0">-- Select Product --</option>
+                                    @if (products != null)
+                                    {
+                                        @foreach (var product in products)
+                                        {
+                                            <option value="@product.Id">@product.Name (@product.ProductNumber) - @product.Price.ToString("C")</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Quantity</label>
+                                <input type="number" class="form-control" min="1" @bind="orderItems[index].Quantity" />
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="button" class="btn btn-sm btn-danger mb-2" @onclick="() => RemoveOrderItem(index)">
+                                    <span class="oi oi-trash"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="mb-3 mt-4">
+                <button type="submit" class="btn btn-primary" disabled="@(orderRequest.CustomerId == 0 || !orderItems.Any() || orderItems.Any(i => i.ProductId == 0))">
+                    Create Order
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick='() => NavigationManager.NavigateTo("/orders")'>Cancel</button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private CreateOrderRequest orderRequest = new CreateOrderRequest();
+    private List<CreateOrderItemRequest> orderItems = new List<CreateOrderItemRequest>();
+    private List<Customer>? customers;
+    private List<Product>? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        customers = await CustomerService.GetCustomersAsync();
+        products = await ProductService.GetProductsAsync();
+        
+        AddOrderItem();
+    }
+
+    private void AddOrderItem()
+    {
+        orderItems.Add(new CreateOrderItemRequest { ProductId = 0, Quantity = 1 });
+    }
+
+    private void RemoveOrderItem(int index)
+    {
+        orderItems.RemoveAt(index);
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        orderRequest.OrderItems = orderItems.Where(i => i.ProductId > 0 && i.Quantity > 0).ToList();
+        
+        if (orderRequest.CustomerId > 0 && orderRequest.OrderItems.Any())
+        {
+            try {
+                var order = await OrderService.CreateOrderAsync(orderRequest);
+                NavigationManager.NavigateTo($"/orders/{order.Id}");
+            }
+            catch (Exception) {
+                
+            }
+        }
+    }
+}
