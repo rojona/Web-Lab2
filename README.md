@@ -2,6 +2,8 @@
 
 Ett enkelt e-handelssystem utvecklat med Blazor WebAssembly .NET 8 och ASP.NET Core Web API. Projektet följer Repository Pattern och Unit of Work-mönstret med rollbaserad autentisering (JWT).
 
+`API-Spec finns i rot-mappen.`
+
 ## Teknologier
 - ASP.NET Core 8
 - Blazor WebAssembly
