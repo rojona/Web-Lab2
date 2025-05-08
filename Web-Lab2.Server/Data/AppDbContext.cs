@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Web_Lab2.Models;
 
 namespace Web_Lab2.Data;
@@ -24,9 +25,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<OrderItem>().Property(oi => oi.UnitPrice).HasPrecision(18, 2);
         
         modelBuilder.Entity<User>().Property(u => u.Roles)
-            .HasConversion<string>(
+            .HasConversion(
                 v => string.Join(',', v),
-                v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
+                v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
+                new ValueComparer<List<string>>(
+                    (c1, c2) => c1.SequenceEqual(c2),
+                    c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                    c => c.ToList()
+                )
             );
     }
 }

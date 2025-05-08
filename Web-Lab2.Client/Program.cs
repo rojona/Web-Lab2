@@ -11,7 +11,8 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Services.AddScoped(sp => new HttpClient());
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(ApiConfig.BaseUrl) });
+
 builder.Services.AddScoped(sp => new JsonSerializerOptions
 {
     PropertyNameCaseInsensitive = true,
@@ -26,8 +27,10 @@ builder.Services.AddScoped(sp =>
 {
     var handler = sp.GetRequiredService<AuthorizationMessageHandler>();
     handler.InnerHandler = new HttpClientHandler();
-    return new HttpClient(handler);
+    var client = new HttpClient(handler) { BaseAddress = new Uri(ApiConfig.BaseUrl) };
+    return client;
 });
+
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
 

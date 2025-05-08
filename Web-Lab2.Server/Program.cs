@@ -45,10 +45,29 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorClient",
-        policy => { policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader(); });
+        policy => { 
+            policy.WithOrigins("http://localhost:5000")
+                .AllowAnyMethod()
+                .AllowAnyHeader(); 
+        });
 });
 
+builder.WebHost.UseWebRoot("wwwroot");
+builder.Environment.EnvironmentName = "Development";
+builder.WebHost.UseUrls("http://localhost:5231", "https://localhost:5232");
+
 var app = builder.Build();
+
+Console.WriteLine($"Environment: {app.Environment.EnvironmentName}");
+Console.WriteLine($"WebRootPath: {app.Environment.WebRootPath}");
+Console.WriteLine($"ContentRootPath: {app.Environment.ContentRootPath}");
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+    app.UseWebAssemblyDebugging();
+    Console.WriteLine("Development mode is enabled");
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -56,11 +75,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
 app.UseCors("AllowBlazorClient");
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseStaticFiles();
+app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -110,7 +130,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -125,6 +144,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-app.MapControllers();
+Console.WriteLine($"Server is listening on URLs: {string.Join(", ", app.Urls)}");
 
 app.Run();
